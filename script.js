@@ -411,30 +411,3 @@ document.addEventListener('DOMContentLoaded', () => {
     // Inicia o jogo
     init();
 });
- 
-function spawnPiece() {
-    // Gera uma nova próxima peça
-    const randomIndex = Math.floor(Math.random() * pieces.length);
-    nextPiece = {
-        shape: pieces[randomIndex].shape,
-        color: pieces[randomIndex].color
-    };
-
-    // Define a peça atual
-    currentPiece = {
-        shape: nextPiece.shape,
-        color: nextPiece.color,
-        position: { x: Math.floor(columns / 2) - Math.floor(nextPiece.shape[0].length / 2), y: 0 }
-    };
-
-    // Verifica se já perdeu ao criar nova peça
-    if (checkCollision()) {
-        gameOver = true;
-        alert(`Game Over! Pontuação: ${score}`);
-        return;
-    }
-
-    // Chama a função para desenhar a próxima peça
-    drawNextPiece();
-}
-
