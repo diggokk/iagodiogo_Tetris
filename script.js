@@ -1,3 +1,4 @@
+
 document.addEventListener('DOMContentLoaded', () => {
     const canvas = document.getElementById('tetris');
     const ctx = canvas.getContext('2d');
@@ -410,3 +411,5 @@ document.addEventListener('DOMContentLoaded', () => {
     // Inicia o jogo
     init();
 });
+>>>>>>> d27f1eb575bf4b6a5e13a706c124c091ff57e2e0
+
