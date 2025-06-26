@@ -411,5 +411,4 @@ document.addEventListener('DOMContentLoaded', () => {
     // Inicia o jogo
     init();
 });
->>>>>>> d27f1eb575bf4b6a5e13a706c124c091ff57e2e0
 
