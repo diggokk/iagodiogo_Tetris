@@ -35,6 +35,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Inicialização
     function init() {
+        resetGame();
         spawnPiece();
         drawNextPiece();
         
@@ -54,13 +55,13 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Game loop usando requestAnimationFrame
     function gameLoop(time = 0) {
-        if (gameOver) return;
+        if (gameOver || isPaused) return;
         
         const deltaTime = time - lastTime;
         lastTime = time;
         
         dropCounter += deltaTime;
-        if (dropCounter > dropInterval && !isPaused) {
+        if (dropCounter > dropInterval) {
             dropPiece();
             dropCounter = 0;
         }
