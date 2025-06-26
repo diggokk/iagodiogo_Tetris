@@ -411,3 +411,64 @@ document.addEventListener('DOMContentLoaded', () => {
     // Inicia o jogo
     init();
 });
+// Adicione esta função para verificar game over
+function checkGameOver() {
+    for (let col = 0; col < COLS; col++) {
+        if (board[0][col] !== 0) {
+            return true; // Tem peça no topo - game over
+        }
+    }
+    return false;
+}
+
+// Modifique sua função de atualização principal para incluir a verificação
+function update() {
+    if (!gameOver) {
+        // Seu código normal de movimento e verificação...
+
+        // Depois de mover uma peça para baixo:
+        if (checkGameOver()) {
+            gameOver = true;
+            showGameOver();
+            return; // Sai da função
+        }
+    }
+}
+
+// Função para mostrar o game over
+function showGameOver() {
+    const gameOverDiv = document.createElement('div');
+    gameOverDiv.id = 'gameOver';
+    gameOverDiv.style.position = 'absolute';
+    gameOverDiv.style.top = '50%';
+    gameOverDiv.style.left = '50%';
+    gameOverDiv.style.transform = 'translate(-50%, -50%)';
+    gameOverDiv.style.backgroundColor = 'rgba(0,0,0,0.8)';
+    gameOverDiv.style.color = 'white';
+    gameOverDiv.style.padding = '20px';
+    gameOverDiv.style.borderRadius = '10px';
+    gameOverDiv.style.textAlign = 'center';
+    gameOverDiv.innerHTML = '<h1>Game Over</h1><button onclick="resetGame()">Try Again</button>';
+    
+    document.getElementById('tetris-container').appendChild(gameOverDiv);
+}
+
+// Função para resetar o jogo (opcional)
+function resetGame() {
+    // Reinicia todas as variáveis do jogo
+    board = createMatrix(ROWS, COLS);
+    score = 0;
+    gameOver = false;
+    document.getElementById('gameOver').remove();
+    
+    // Reinicia o jogo
+    nextPiece = createPiece();
+    currentPiece = nextPiece;
+    nextPiece = createPiece();
+    drawAll();
+}
+
+// Não esqueça de declarar a variável gameOver no início do seu código
+let gameOver = false;
+
+
