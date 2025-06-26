@@ -132,6 +132,7 @@
             font-size: 1.8rem;
             font-weight: bold;
             color: #7FDBFF;
+            text-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
         }
 
         .controls {
@@ -227,9 +228,254 @@
         </div>
     </div>
 
-    <!-- Inclua aqui o código JavaScript fornecido anteriormente -->
     <script>
-        // Cole todo o código JavaScript que eu forneci anteriormente aqui
+        document.addEventListener('DOMContentLoaded', () => {
+            const canvas = document.getElementById('tetris');
+            const ctx = canvas.getContext('2d');
+            const nextCanvas = document.getElementById('nextPiece');
+            const nextCtx = nextCanvas.getContext('2d');
+            const scoreElement = document.getElementById('score');
+            const levelElement = document.getElementById('level');
+            
+            // Configuração do jogo
+            const scale = 20;
+            const rows = canvas.height / scale;
+            const columns = canvas.width / scale;
+            let gameOver = false;
+            let isPaused = false;
+            let dropInterval = 1000;
+            let dropCounter = 0;
+            let lastTime = 0;
+            
+            // Peças do Tetris com cores vibrantes
+            const pieces = [
+                { shape: [[1, 1, 1, 1]], color: '#FF4136' }, // I
+                { shape: [[1, 1, 1], [0, 1, 0]], color: '#2ECC40' }, // T
+                { shape: [[1, 1, 1], [1, 0, 0]], color: '#0074D9' }, // L
+                { shape: [[1, 1, 1], [0, 0, 1]], color: '#FFDC00' }, // J
+                { shape: [[1, 1], [1, 1]], color: '#B10DC9' }, // O
+                { shape: [[0, 1, 1], [1, 1, 0]], color: '#FF851B' }, // S
+                { shape: [[1, 1, 0], [0, 1, 1]], color: '#7FDBFF' }  // Z
+            ];
+            
+            // Estado do jogo
+            let score = 0;
+            let level = 1;
+            let board = Array(rows).fill().map(() => Array(columns).fill(0));
+            let currentPiece = null;
+            let nextPiece = null;
+            
+            // Inicialização
+            function init() {
+                spawnPiece();
+                drawNextPiece();
+                
+                document.addEventListener('keydown', handleKeyPress);
+                
+                document.querySelectorAll('.control-btn').forEach((btn, index) => {
+                    btn.addEventListener('click', () => {
+                        const controls = ['ArrowUp', 'ArrowLeft', 'ArrowRight', 'ArrowDown', 'p', 'r'];
+                        const fakeKeyEvent = { key: controls[index], preventDefault: () => {} };
+                        handleKeyPress(fakeKeyEvent);
+                    });
+                });
+                
+                requestAnimationFrame(gameLoop);
+            }
+            
+            // Game loop
+            function gameLoop(time = 0) {
+                if (gameOver) return;
+                
+                const deltaTime = time - lastTime;
+                lastTime = time;
+                
+                dropCounter += deltaTime;
+                if (dropCounter > dropInterval && !isPaused) {
+                    dropPiece();
+                    dropCounter = 0;
+                }
+                
+                draw();
+                requestAnimationFrame(gameLoop);
+            }
+
+            function spawnPiece() {
+                if (nextPiece) {
+                    currentPiece = {
+                        shape: nextPiece.shape,
+                        color: nextPiece.color,
+                        position: { x: Math.floor(columns / 2) - Math.floor(nextPiece.shape[0].length / 2), y: -1 }
+                    };
+                } else {
+                    const randomIndex = Math.floor(Math.random() * pieces.length);
+                    currentPiece = {
+                        shape: pieces[randomIndex].shape,
+                        color: pieces[randomIndex].color,
+                        position: { x: Math.floor(columns / 2) - 1, y: -1 }
+                    };
+                }
+
+                const randomIndex = Math.floor(Math.random() * pieces.length);
+                nextPiece = {
+                    shape: pieces[randomIndex].shape,
+                    color: pieces[randomIndex].color
+                };
+
+                if (checkCollision()) {
+                    gameOver = true;
+                    alert('Game Over!');
+                }
+            }
+            
+            function drawNextPiece() {
+                nextCtx.clearRect(0, 0, nextCanvas.width, nextCanvas.height);
+                const blockSize = nextCanvas.width / 4;
+                
+                nextPiece.shape.forEach((row, y) => {
+                    row.forEach((value, x) => {
+                        if (value) {
+                            nextCtx.fillStyle = nextPiece.color;
+                            nextCtx.fillRect(
+                                x * blockSize + 10, 
+                                y * blockSize + 10, 
+                                blockSize - 10, 
+                                blockSize - 10
+                            );
+                        }
+                    });
+                });
+            }
+
+            function draw() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                // Draw board
+                board.forEach((row, y) => {
+                    row.forEach((value, x) => {
+                        if (value) {
+                            ctx.fillStyle = value;
+                            ctx.fillRect(x * scale, y * scale, scale, scale);
+                        }
+                    });
+                });
+
+                // Draw current piece
+                currentPiece.shape.forEach((row, y) => {
+                    row.forEach((value, x) => {
+                        if (value) {
+                            ctx.fillStyle = currentPiece.color;
+                            ctx.fillRect(
+                                (currentPiece.position.x + x) * scale,
+                                (currentPiece.position.y + y) * scale,
+                                scale, 
+                                scale
+                            );
+                        }
+                    });
+                });
+            }
+            
+            function dropPiece() {
+                currentPiece.position.y++;
+                if (checkCollision()) {
+                    currentPiece.position.y--;
+                    mergePiece();
+                    clearLines();
+                    spawnPiece();
+                }
+            }
+
+            function checkCollision() {
+                for (let y = 0; y < currentPiece.shape.length; y++) {
+                    for (let x = 0; x < currentPiece.shape[y].length; x++) {
+                        if (!currentPiece.shape[y][x]) continue;
+                        if (currentPiece.position.y + y >= rows ||
+                            currentPiece.position.x + x < 0 ||
+                            currentPiece.position.x + x >= columns ||
+                            board[currentPiece.position.y + y]?.[currentPiece.position.x + x]) {
+                            return true;
+                        }
+                    }
+                }
+                return false;
+            }
+
+            function mergePiece() {
+                currentPiece.shape.forEach((row, y) => {
+                    row.forEach((value, x) => {
+                        if (value) {
+                            board[currentPiece.position.y + y][currentPiece.position.x + x] = currentPiece.color;
+                        }
+                    });
+                });
+            }
+
+            function clearLines() {
+                let linesCleared = 0;
+                for (let y = rows - 1; y >= 0; y--) {
+                    if (board[y].every(cell => cell)) {
+                        board.splice(y, 1);
+                        board.unshift(Array(columns).fill(0));
+                        linesCleared++;
+                    }
+                }
+                score += linesCleared * 100;
+                scoreElement.textContent = score;
+            }
+
+            function handleKeyPress(event) {
+                if (!currentPiece || isPaused) return;
+
+                switch(event.key) {
+                    case 'ArrowLeft':
+                        currentPiece.position.x--;
+                        if (checkCollision()) currentPiece.position.x++;
+                        break;
+                    case 'ArrowRight':
+                        currentPiece.position.x++;
+                        if (checkCollision()) currentPiece.position.x--;
+                        break;
+                    case 'ArrowDown':
+                        dropPiece();
+                        break;
+                    case 'ArrowUp':
+                        rotatePiece();
+                        break;
+                    case 'p':
+                        isPaused = !isPaused;
+                        break;
+                    case 'r':
+                        resetGame();
+                        break;
+                }
+            }
+
+            function rotatePiece() {
+                const original = currentPiece.shape;
+                // Transpose matrix
+                currentPiece.shape = currentPiece.shape[0].map((_, i) => 
+                    currentPiece.shape.map(row => row[i]).reverse()
+                );
+                
+                if (checkCollision()) {
+                    currentPiece.shape = original;
+                }
+            }
+
+            function resetGame() {
+                board = Array(rows).fill().map(() => Array(columns).fill(0));
+                score = 0;
+                scoreElement.textContent = score;
+                gameOver = false;
+                currentPiece = null;
+                nextPiece = null;
+                spawnPiece();
+                drawNextPiece();
+            }
+            
+            init();
+        });
     </script>
 </body>
 </html>
