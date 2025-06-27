@@ -6,9 +6,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const scoreElement = document.getElementById('score');
     
     // Configuração do jogo
+    canvas.width = canvas.clientWidth;
+    canvas.height = canvas.clientHeight;
+    nextCanvas.width = nextCanvas.clientWidth;
+    nextCanvas.height = nextCanvas.clientHeight;
+
     const scale = 20;
-    const rows = canvas.height / scale;
-    const columns = canvas.width / scale;
+    let rows, columns;
+
+function updateGridSize() {
+    rows = Math.floor(canvas.height / scale);
+    columns = Math.floor(canvas.width / scale);
+}
+updateGridSize(); // chama logo após ajustar canvas
+
     let gameOver = false;
     let isPaused = false;
     let dropInterval = 1000; // Intervalo inicial (1 segundo)
