@@ -353,30 +353,25 @@ function spawnPiece() {
         
         // Atualiza pontuação e nível
         if (linesCleared > 0) {
-            const points = [0, 40, 100, 300, 1200]; // Pontos por 0, 1, 2, 3, 4 linhas
-            score += points[linesCleared] * level;
-            
-            // A cada 10 linhas aumenta o nível e dificuldade
-            const newLevel = Math.floor(score / 1000) + 1;
-            if (newLevel > level) {
-                level = newLevel;
-                dropInterval = Math.max(100, 1000 - (level - 1) * 100); // Diminui o intervalo até mínimo de 100ms
-            
-            // Atualiza o texto da pontuação e dispara animação
-scoreElement.textContent = score;
+    const points = [0, 40, 100, 300, 1200];
+    score += points[linesCleared] * level;
 
-// Adiciona classe para animação
-scoreElement.classList.add('score-glow');
+    const newLevel = Math.floor(score / 1000) + 1;
+    if (newLevel > level) {
+        level = newLevel;
+        dropInterval = Math.max(100, 1000 - (level - 1) * 100);
+    }
 
-// Remove a classe após a animação terminar para poder repetir depois
-scoreElement.addEventListener('animationend', () => {
-  scoreElement.classList.remove('score-glow');
-}, { once: true });
+    // Atualiza o texto da pontuação e dispara animação
+    scoreElement.textContent = score;
+    scoreElement.classList.add('score-glow');
+    scoreElement.addEventListener('animationend', () => {
+        scoreElement.classList.remove('score-glow');
+    }, { once: true });
+}
 
             
-            
-            }
-        }
+        
     }
     
     // Pausa/continua o jogo
@@ -386,16 +381,15 @@ scoreElement.addEventListener('animationend', () => {
     
     // Reinicia o jogo
     function resetGame() {
-    board = Array(rows).fill().map(() => Array(columns).fill(0));
-    score = 0;
-    level = 1;
-    dropInterval = 1000;
-    gameOver = false;
-    isPaused = false;
-    spawnPiece();
-    drawNextPiece();
-    draw();  // Desenha o estado inicial
-}
+        board = Array(rows).fill().map(() => Array(columns).fill(0));
+        score = 0;
+        level = 1;
+        dropInterval = 1000;
+        gameOver = false;
+        isPaused = false;
+        spawnPiece();
+        drawNextPiece();
+    }
     
     // Manipulador de teclado
     function handleKeyPress(event) {
@@ -420,4 +414,4 @@ scoreElement.addEventListener('animationend', () => {
     
     // Inicia o jogo
     init();
-});
+);
