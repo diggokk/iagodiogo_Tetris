@@ -364,7 +364,8 @@ document.addEventListener('DOMContentLoaded', () => {
         // Atualiza pontuação e nível
         if (linesCleared > 0) {
             const points = [0, 40, 100, 300, 1200]; // Pontos por 0, 1, 2, 3, 4 linhas
-            score += points[linesCleared] * level;
+            score += linesCleared * 100;
+            scoreElement.textContent = score;
             
             // A cada 10 linhas aumenta o nível e dificuldade
             const newLevel = Math.floor(score / 1000) + 1;
