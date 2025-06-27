@@ -54,63 +54,38 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     // Game loop usando requestAnimationFrame
-   function gameLoop(time = 0) {
-    if (isPaused) {
-        draw();  // Mostra a tela pausada
+    function gameLoop(time = 0) {
+        if (gameOver || isPaused) return;
+        
+        const deltaTime = time - lastTime;
+        lastTime = time;
+        
+        dropCounter += deltaTime;
+        if (dropCounter > dropInterval) {
+            dropPiece();
+            dropCounter = 0;
+        }
+        
+        draw();
         requestAnimationFrame(gameLoop);
-        return;
     }
-
-    if (gameOver) {
-        // Game Over está desenhado em showGameOver, mantém a tela assim
-        requestAnimationFrame(gameLoop);
-        return;
-    }
-
-    const deltaTime = time - lastTime;
-    lastTime = time;
-
-    dropCounter += deltaTime;
-    if (dropCounter > dropInterval) {
-        dropPiece();
-        dropCounter = 0;
-    }
-
-    draw();
-    requestAnimationFrame(gameLoop);
-}
     
     // Cria uma peça aleatória
-
-function spawnPiece() {
-    if (nextPiece) {
-        currentPiece = {
-            shape: nextPiece.shape,
-            color: nextPiece.color,
-            position: { x: Math.floor(columns / 2) - Math.floor(nextPiece.shape[0].length / 2), y: 0 }
-        };
-    } else {
-        const randomIndex = Math.floor(Math.random() * pieces.length);
-        currentPiece = {
-            shape: pieces[randomIndex].shape,
-            color: pieces[randomIndex].color,
-            position: { x: Math.floor(columns / 2) - Math.floor(pieces[randomIndex].shape[0].length / 2), y: 0 }
-        };
-    }
-
-    if (checkCollision()) {
-        showGameOver();
-        return;  // Para de gerar nova peça se game over
-    }
-
-    const randomIndex = Math.floor(Math.random() * pieces.length);
-    nextPiece = {
-        shape: pieces[randomIndex].shape,
-        color: pieces[randomIndex].color
-    };
-
-    drawNextPiece();  // Atualiza visual da próxima peça
-}
+    function spawnPiece() {
+        if (nextPiece) {
+            currentPiece = {
+                shape: nextPiece.shape,
+                color: nextPiece.color,
+                position: { x: Math.floor(columns / 2) - Math.floor(nextPiece.shape[0].length / 2), y: 0 }
+            };
+        } else {
+            const randomIndex = Math.floor(Math.random() * pieces.length);
+            currentPiece = {
+                shape: pieces[randomIndex].shape,
+                color: pieces[randomIndex].color,
+                position: { x: Math.floor(columns / 2) - Math.floor(pieces[randomIndex].shape[0].length / 2), y: 0 }
+            };
+        }
         
         // Verifica se já perdeu ao criar nova peça
         if (checkCollision()) {
@@ -127,22 +102,57 @@ function spawnPiece() {
     }
     
     // Função para mostrar a mensagem de Game Over
-   function showGameOver() {
-    gameOver = true;
-    // Exibir mensagem no canvas
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    function showGameOver() {
+        alert(`Game Over! Pontuação: ${score}`);
+        resetGame();
+    }
     
-    ctx.fillStyle = 'red';
-    ctx.font = '40px Arial';
-    ctx.textAlign = 'center';
-    ctx.fillText('GAME OVER', canvas.width / 2, canvas.height / 2);
-    
-    ctx.font = '20px Arial';
-    ctx.fillText(`Pontuação final: ${score}`, canvas.width / 2, canvas.height / 2 + 40);
-    
-    ctx.fillText('Pressione R para reiniciar', canvas.width / 2, canvas.height / 2 + 80);
-}
+    // Desenha a peça da próxima jogada
+    function drawNextPiece() {
+        nextCtx.clearRect(0, 0, nextCanvas.width, nextCanvas.height);
+        
+        if (nextPiece) {
+            const blockSize = nextCanvas.width / 4;
+            const offsetX = (nextCanvas.width - (nextPiece.shape[0].length * blockSize)) / 2;
+            const offsetY = (nextCanvas.height - (nextPiece.shape.length * blockSize)) / 2;
+            
+            nextPiece.shape.forEach((row, y) => {
+                row.forEach((value, x) => {
+                    if (value) {
+                        const gradient = nextCtx.createLinearGradient(
+                            offsetX + x * blockSize, 
+                            offsetY + y * blockSize, 
+                            offsetX + x * blockSize + blockSize, 
+                            offsetY + y * blockSize + blockSize
+                        );
+                        gradient.addColorStop(0, nextPiece.color);
+                        gradient.addColorStop(1, darkenColor(nextPiece.color, 20));
+                        
+                        nextCtx.fillStyle = gradient;
+                        nextCtx.shadowColor = 'rgba(255, 255, 255, 0.5)';
+                        nextCtx.shadowBlur = 5;
+                        nextCtx.fillRect(
+                            offsetX + x * blockSize, 
+                            offsetY + y * blockSize, 
+                            blockSize, 
+                            blockSize
+                        );
+                        
+                        nextCtx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+                        nextCtx.lineWidth = 2;
+                        nextCtx.strokeRect(
+                            offsetX + x * blockSize, 
+                            offsetY + y * blockSize, 
+                            blockSize, 
+                            blockSize
+                        );
+                        
+                        nextCtx.shadowColor = 'transparent';
+                    }
+                });
+            });
+        }
+    }
     
     // Escurece uma cor
     function darkenColor(color, percent) {
@@ -353,25 +363,16 @@ function spawnPiece() {
         
         // Atualiza pontuação e nível
         if (linesCleared > 0) {
-    const points = [0, 40, 100, 300, 1200];
-    score += points[linesCleared] * level;
-
-    const newLevel = Math.floor(score / 1000) + 1;
-    if (newLevel > level) {
-        level = newLevel;
-        dropInterval = Math.max(100, 1000 - (level - 1) * 100);
-    }
-
-    // Atualiza o texto da pontuação e dispara animação
-    scoreElement.textContent = score;
-    scoreElement.classList.add('score-glow');
-    scoreElement.addEventListener('animationend', () => {
-        scoreElement.classList.remove('score-glow');
-    }, { once: true });
-}
-
+            const points = [0, 40, 100, 300, 1200]; // Pontos por 0, 1, 2, 3, 4 linhas
+            score += points[linesCleared] * level;
             
-        
+            // A cada 10 linhas aumenta o nível e dificuldade
+            const newLevel = Math.floor(score / 1000) + 1;
+            if (newLevel > level) {
+                level = newLevel;
+                dropInterval = Math.max(100, 1000 - (level - 1) * 100); // Diminui o intervalo até mínimo de 100ms
+            }
+        }
     }
     
     // Pausa/continua o jogo
@@ -414,4 +415,4 @@ function spawnPiece() {
     
     // Inicia o jogo
     init();
-);
+});
