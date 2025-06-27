@@ -54,38 +54,63 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     // Game loop usando requestAnimationFrame
-    function gameLoop(time = 0) {
-        if (gameOver || isPaused) return;
-        
-        const deltaTime = time - lastTime;
-        lastTime = time;
-        
-        dropCounter += deltaTime;
-        if (dropCounter > dropInterval) {
-            dropPiece();
-            dropCounter = 0;
-        }
-        
-        draw();
+   function gameLoop(time = 0) {
+    if (isPaused) {
+        draw();  // Mostra a tela pausada
         requestAnimationFrame(gameLoop);
+        return;
     }
+
+    if (gameOver) {
+        // Game Over está desenhado em showGameOver, mantém a tela assim
+        requestAnimationFrame(gameLoop);
+        return;
+    }
+
+    const deltaTime = time - lastTime;
+    lastTime = time;
+
+    dropCounter += deltaTime;
+    if (dropCounter > dropInterval) {
+        dropPiece();
+        dropCounter = 0;
+    }
+
+    draw();
+    requestAnimationFrame(gameLoop);
+}
     
     // Cria uma peça aleatória
-    function spawnPiece() {
-        if (nextPiece) {
-            currentPiece = {
-                shape: nextPiece.shape,
-                color: nextPiece.color,
-                position: { x: Math.floor(columns / 2) - Math.floor(nextPiece.shape[0].length / 2), y: 0 }
-            };
-        } else {
-            const randomIndex = Math.floor(Math.random() * pieces.length);
-            currentPiece = {
-                shape: pieces[randomIndex].shape,
-                color: pieces[randomIndex].color,
-                position: { x: Math.floor(columns / 2) - Math.floor(pieces[randomIndex].shape[0].length / 2), y: 0 }
-            };
-        }
+
+function spawnPiece() {
+    if (nextPiece) {
+        currentPiece = {
+            shape: nextPiece.shape,
+            color: nextPiece.color,
+            position: { x: Math.floor(columns / 2) - Math.floor(nextPiece.shape[0].length / 2), y: 0 }
+        };
+    } else {
+        const randomIndex = Math.floor(Math.random() * pieces.length);
+        currentPiece = {
+            shape: pieces[randomIndex].shape,
+            color: pieces[randomIndex].color,
+            position: { x: Math.floor(columns / 2) - Math.floor(pieces[randomIndex].shape[0].length / 2), y: 0 }
+        };
+    }
+
+    if (checkCollision()) {
+        showGameOver();
+        return;  // Para de gerar nova peça se game over
+    }
+
+    const randomIndex = Math.floor(Math.random() * pieces.length);
+    nextPiece = {
+        shape: pieces[randomIndex].shape,
+        color: pieces[randomIndex].color
+    };
+
+    drawNextPiece();  // Atualiza visual da próxima peça
+}
         
         // Verifica se já perdeu ao criar nova peça
         if (checkCollision()) {
@@ -102,57 +127,22 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     // Função para mostrar a mensagem de Game Over
-    function showGameOver() {
-        alert(`Game Over! Pontuação: ${score}`);
-        resetGame();
-    }
+   function showGameOver() {
+    gameOver = true;
+    // Exibir mensagem no canvas
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
     
-    // Desenha a peça da próxima jogada
-    function drawNextPiece() {
-        nextCtx.clearRect(0, 0, nextCanvas.width, nextCanvas.height);
-        
-        if (nextPiece) {
-            const blockSize = nextCanvas.width / 4;
-            const offsetX = (nextCanvas.width - (nextPiece.shape[0].length * blockSize)) / 2;
-            const offsetY = (nextCanvas.height - (nextPiece.shape.length * blockSize)) / 2;
-            
-            nextPiece.shape.forEach((row, y) => {
-                row.forEach((value, x) => {
-                    if (value) {
-                        const gradient = nextCtx.createLinearGradient(
-                            offsetX + x * blockSize, 
-                            offsetY + y * blockSize, 
-                            offsetX + x * blockSize + blockSize, 
-                            offsetY + y * blockSize + blockSize
-                        );
-                        gradient.addColorStop(0, nextPiece.color);
-                        gradient.addColorStop(1, darkenColor(nextPiece.color, 20));
-                        
-                        nextCtx.fillStyle = gradient;
-                        nextCtx.shadowColor = 'rgba(255, 255, 255, 0.5)';
-                        nextCtx.shadowBlur = 5;
-                        nextCtx.fillRect(
-                            offsetX + x * blockSize, 
-                            offsetY + y * blockSize, 
-                            blockSize, 
-                            blockSize
-                        );
-                        
-                        nextCtx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
-                        nextCtx.lineWidth = 2;
-                        nextCtx.strokeRect(
-                            offsetX + x * blockSize, 
-                            offsetY + y * blockSize, 
-                            blockSize, 
-                            blockSize
-                        );
-                        
-                        nextCtx.shadowColor = 'transparent';
-                    }
-                });
-            });
-        }
-    }
+    ctx.fillStyle = 'red';
+    ctx.font = '40px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('GAME OVER', canvas.width / 2, canvas.height / 2);
+    
+    ctx.font = '20px Arial';
+    ctx.fillText(`Pontuação final: ${score}`, canvas.width / 2, canvas.height / 2 + 40);
+    
+    ctx.fillText('Pressione R para reiniciar', canvas.width / 2, canvas.height / 2 + 80);
+}
     
     // Escurece uma cor
     function darkenColor(color, percent) {
@@ -382,15 +372,16 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Reinicia o jogo
     function resetGame() {
-        board = Array(rows).fill().map(() => Array(columns).fill(0));
-        score = 0;
-        level = 1;
-        dropInterval = 1000;
-        gameOver = false;
-        isPaused = false;
-        spawnPiece();
-        drawNextPiece();
-    }
+    board = Array(rows).fill().map(() => Array(columns).fill(0));
+    score = 0;
+    level = 1;
+    dropInterval = 1000;
+    gameOver = false;
+    isPaused = false;
+    spawnPiece();
+    drawNextPiece();
+    draw();  // Desenha o estado inicial
+}
     
     // Manipulador de teclado
     function handleKeyPress(event) {
