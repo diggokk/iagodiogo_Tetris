@@ -361,6 +361,20 @@ function spawnPiece() {
             if (newLevel > level) {
                 level = newLevel;
                 dropInterval = Math.max(100, 1000 - (level - 1) * 100); // Diminui o intervalo até mínimo de 100ms
+            
+            // Atualiza o texto da pontuação e dispara animação
+scoreElement.textContent = score;
+
+// Adiciona classe para animação
+scoreElement.classList.add('score-glow');
+
+// Remove a classe após a animação terminar para poder repetir depois
+scoreElement.addEventListener('animationend', () => {
+  scoreElement.classList.remove('score-glow');
+}, { once: true });
+
+            
+            
             }
         }
     }
