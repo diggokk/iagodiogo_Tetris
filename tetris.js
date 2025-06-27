@@ -350,31 +350,27 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Limpa linhas completas
     function clearLines() {
-        let linesCleared = 0;
-        
-        for (let y = rows - 1; y >= 0; y--) {
-            if (board[y].every(cell => cell)) {
-                board.splice(y, 1);
-                board.unshift(Array(columns).fill(0));
-                y++; // Re-verifica a linha atual depois do splice
-                linesCleared++;
-            }
-        }
-        
-        // Atualiza pontuação e nível
-        if (linesCleared > 0) {
-            const points = [0, 40, 100, 300, 1200]; // Pontos por 0, 1, 2, 3, 4 linhas
-            score += linesCleared * 100;
-            scoreElement.textContent = score;
-            
-            // A cada 10 linhas aumenta o nível e dificuldade
-            const newLevel = Math.floor(score / 1000) + 1;
-            if (newLevel > level) {
-                level = newLevel;
-                dropInterval = Math.max(100, 1000 - (level - 1) * 100); // Diminui o intervalo até mínimo de 100ms
-            }
+         let linesCleared = 0;
+    for (let y = rows - 1; y >= 0; y--) {
+        if (board[y].every(cell => cell)) {
+            flashLine(y); // efeito visual na linha
+            board.splice(y, 1);
+            board.unshift(Array(columns).fill(0));
+            linesCleared++;
         }
     }
+        
+        // Atualiza pontuação e nível
+           if (linesCleared > 0) {
+        score += linesCleared * 100;
+        scoreElement.textContent = score;
+
+        // Animação na pontuação
+        scoreElement.classList.remove('animate');
+        void scoreElement.offsetWidth; // força reinício
+        scoreElement.classList.add('animate');
+    }
+}
     
     // Pausa/continua o jogo
     function togglePause() {
@@ -417,3 +413,24 @@ document.addEventListener('DOMContentLoaded', () => {
     // Inicia o jogo
     init();
 });
+
+function flashLine(row) {
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = canvas.width;
+    tempCanvas.height = canvas.height;
+    const tempCtx = tempCanvas.getContext('2d');
+
+    document.body.appendChild(tempCanvas);
+    tempCanvas.style.position = 'absolute';
+    tempCanvas.style.left = canvas.offsetLeft + 'px';
+    tempCanvas.style.top = canvas.offsetTop + 'px';
+    tempCanvas.style.pointerEvents = 'none';
+    tempCanvas.style.zIndex = 99;
+
+    tempCtx.fillStyle = 'rgba(255, 255, 0, 0.4)';
+    tempCtx.fillRect(0, row * scale, canvas.width, scale);
+
+    setTimeout(() => {
+        document.body.removeChild(tempCanvas);
+    }, 200);
+}
