@@ -1,14 +1,6 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <title>Tetris Game</title>
-    <link rel="stylesheet" href="styles.css">
-</head>
-<body>
-    <div id="tetris-container">
-        <!-- Seu canvas ou grid do jogo aqui -->
-    </div>
-    <script src="tetris.js"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tetris Moderno</title>
@@ -169,19 +161,6 @@
             background: rgba(255, 255, 255, 0.2);
         }
 
-        .mobile-controls {
-            display: none;
-            margin-top: 20px;
-        }
-
-        @media (max-width: 768px) {
-            .mobile-controls {
-                display: flex;
-                flex-direction: column;
-                gap: 10px;
-            }
-        }
-
         .glow-effect {
             position: absolute;
             width: 100px;
@@ -254,6 +233,7 @@
             let dropInterval = 1000;
             let dropCounter = 0;
             let lastTime = 0;
+            let totalLinesCleared = 0;
             
             // Peças do Tetris com cores vibrantes
             const pieces = [
@@ -313,14 +293,14 @@
                     currentPiece = {
                         shape: nextPiece.shape,
                         color: nextPiece.color,
-                        position: { x: Math.floor(columns / 2) - Math.floor(nextPiece.shape[0].length / 2), y: -1 }
+                        position: { x: Math.floor(columns / 2) - Math.floor(nextPiece.shape[0].length / 2), y: 0 }
                     };
                 } else {
                     const randomIndex = Math.floor(Math.random() * pieces.length);
                     currentPiece = {
                         shape: pieces[randomIndex].shape,
                         color: pieces[randomIndex].color,
-                        position: { x: Math.floor(columns / 2) - 1, y: -1 }
+                        position: { x: Math.floor(columns / 2) - 1, y: 0 }
                     };
                 }
 
@@ -332,7 +312,7 @@
 
                 if (checkCollision()) {
                     gameOver = true;
-                    alert('Game Over!');
+                    alert('Game Over! Pontuação: ' + score);
                 }
             }
             
@@ -358,22 +338,31 @@
             function draw() {
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
                 
-                // Draw board
+                // Desenha o tabuleiro
                 board.forEach((row, y) => {
                     row.forEach((value, x) => {
                         if (value) {
                             ctx.fillStyle = value;
                             ctx.fillRect(x * scale, y * scale, scale, scale);
+                            ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
+                            ctx.strokeRect(x * scale, y * scale, scale, scale);
                         }
                     });
                 });
 
-                // Draw current piece
+                // Desenha a peça atual
                 currentPiece.shape.forEach((row, y) => {
                     row.forEach((value, x) => {
                         if (value) {
                             ctx.fillStyle = currentPiece.color;
                             ctx.fillRect(
+                                (currentPiece.position.x + x) * scale,
+                                (currentPiece.position.y + y) * scale,
+                                scale, 
+                                scale
+                            );
+                            ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
+                            ctx.strokeRect(
                                 (currentPiece.position.x + x) * scale,
                                 (currentPiece.position.y + y) * scale,
                                 scale, 
@@ -391,17 +380,20 @@
                     mergePiece();
                     clearLines();
                     spawnPiece();
+                    drawNextPiece();
                 }
+                dropCounter = 0;
             }
 
             function checkCollision() {
                 for (let y = 0; y < currentPiece.shape.length; y++) {
                     for (let x = 0; x < currentPiece.shape[y].length; x++) {
                         if (!currentPiece.shape[y][x]) continue;
-                        if (currentPiece.position.y + y >= rows ||
-                            currentPiece.position.x + x < 0 ||
-                            currentPiece.position.x + x >= columns ||
-                            board[currentPiece.position.y + y]?.[currentPiece.position.x + x]) {
+                        
+                        const boardX = currentPiece.position.x + x;
+                        const boardY = currentPiece.position.y + y;
+                        
+                        if (boardY >= rows || boardX < 0 || boardX >= columns || (boardY >= 0 && board[boardY][boardX])) {
                             return true;
                         }
                     }
@@ -413,7 +405,11 @@
                 currentPiece.shape.forEach((row, y) => {
                     row.forEach((value, x) => {
                         if (value) {
-                            board[currentPiece.position.y + y][currentPiece.position.x + x] = currentPiece.color;
+                            const boardY = currentPiece.position.y + y;
+                            const boardX = currentPiece.position.x + x;
+                            if (boardY >= 0 && boardY < rows && boardX >= 0 && boardX < columns) {
+                                board[boardY][boardX] = currentPiece.color;
+                            }
                         }
                     });
                 });
@@ -421,28 +417,46 @@
 
             function clearLines() {
                 let linesCleared = 0;
+                
                 for (let y = rows - 1; y >= 0; y--) {
-                    if (board[y].every(cell => cell)) {
+                    if (board[y].every(cell => cell !== 0)) {
                         board.splice(y, 1);
                         board.unshift(Array(columns).fill(0));
                         linesCleared++;
+                        y++; // Reavalia a mesma posição após remoção
                     }
                 }
-                score += linesCleared * 100;
-                scoreElement.textContent = score;
+                
+                if (linesCleared > 0) {
+                    // Sistema de pontuação oficial do Tetris
+                    const points = [40, 100, 300, 1200][linesCleared - 1] * level;
+                    score += points;
+                    totalLinesCleared += linesCleared;
+                    
+                    // Aumenta o nível a cada 10 linhas
+                    if (totalLinesCleared >= level * 10) {
+                        level++;
+                        levelElement.textContent = level;
+                        dropInterval = Math.max(200, dropInterval - 50); // Aumenta a velocidade
+                    }
+                    
+                    scoreElement.textContent = score;
+                }
             }
 
             function handleKeyPress(event) {
-                if (!currentPiece || isPaused) return;
-
+                if (gameOver) return;
+                
                 switch(event.key) {
                     case 'ArrowLeft':
                         currentPiece.position.x--;
                         if (checkCollision()) currentPiece.position.x++;
+                        else dropCounter = 0;
                         break;
                     case 'ArrowRight':
                         currentPiece.position.x++;
                         if (checkCollision()) currentPiece.position.x--;
+                        else dropCounter = 0;
                         break;
                     case 'ArrowDown':
                         dropPiece();
@@ -457,27 +471,31 @@
                         resetGame();
                         break;
                 }
+                draw();
             }
 
             function rotatePiece() {
-                const original = currentPiece.shape;
-                // Transpose matrix
+                const originalShape = currentPiece.shape;
+                // Transpose and reverse = rotation
                 currentPiece.shape = currentPiece.shape[0].map((_, i) => 
                     currentPiece.shape.map(row => row[i]).reverse()
                 );
                 
                 if (checkCollision()) {
-                    currentPiece.shape = original;
+                    currentPiece.shape = originalShape;
                 }
             }
 
             function resetGame() {
                 board = Array(rows).fill().map(() => Array(columns).fill(0));
                 score = 0;
+                level = 1;
+                totalLinesCleared = 0;
+                dropInterval = 1000;
                 scoreElement.textContent = score;
+                levelElement.textContent = level;
                 gameOver = false;
-                currentPiece = null;
-                nextPiece = null;
+                isPaused = false;
                 spawnPiece();
                 drawNextPiece();
             }
@@ -487,4 +505,3 @@
     </script>
 </body>
 </html>
-
