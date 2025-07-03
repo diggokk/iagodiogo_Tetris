@@ -3,6 +3,224 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tetris Moderno com Recordes</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
+            background-size: 400% 400%;
+            animation: gradientBG 15s ease infinite;
+        }
+
+        @keyframes gradientBG {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .game-container {
+            position: relative;
+            width: 800px;
+            height: 600px;
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            box-shadow: 0 25px 45px rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            overflow: hidden;
+            z-index: 10;
+            display: flex;
+            padding: 20px;
+        }
+
+        #tetris {
+            background-color: rgba(0, 0, 0, 0.7);
+            border-radius: 10px;
+            box-shadow: inset 0 0 20px rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .info-panel {
+            width: 180px;
+            height: 100%;
+            margin-left: 20px;
+            display: flex;
+            flex-direction: column;
+            color: white;
+        }
+
+        /* ... (seus estilos existentes) ... */
+
+        /* NOVOS ESTILOS PARA HIGHSCORE */
+        #highScoreDisplay {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: gold;
+            font-size: 1.5rem;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            background: rgba(0,0,0,0.7);
+            padding: 10px 15px;
+            border-radius: 10px;
+            z-index: 100;
+        }
+
+        .new-record {
+            animation: pulse 0.5s 3;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+    </style>
+</head>
+<body>
+    <div id="highScoreDisplay">🏆 Recorde: 0</div>
+
+    <div class="game-container">
+        <canvas id="tetris" width="400" height="600"></canvas>
+        
+        <div class="info-panel">
+            <div class="score-container">
+                <div class="score-title">Pontuação</div>
+                <div class="score-value" id="score">0</div>
+            </div>
+            
+            <div class="level-container">
+                <div class="level-title">Nível</div>
+                <div class="level-value" id="level">1</div>
+            </div>
+            
+            <div class="next-piece-container">
+                <div class="next-piece-title">Próxima</div>
+                <canvas id="nextPiece" width="100" height="100"></canvas>
+            </div>
+            
+            <div class="controls">
+                <button class="control-btn" title="Rotacionar">↑</button>
+                <button class="control-btn" title="Mover esquerda">←</button>
+                <button class="control-btn" title="Mover direita">→</button>
+                <button class="control-btn" title="Acelerar queda">↓</button>
+                <button class="control-btn" title="Pausar (P)">P</button>
+                <button class="control-btn" title="Reiniciar (R)">R</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Configuração do jogo
+            const canvas = document.getElementById('tetris');
+            const ctx = canvas.getContext('2d');
+            const nextCanvas = document.getElementById('nextPiece');
+            const nextCtx = nextCanvas.getContext('2d');
+            const scoreElement = document.getElementById('score');
+            const levelElement = document.getElementById('level');
+            const highScoreElement = document.getElementById('highScoreDisplay');
+
+            // Highscore System
+            let highScore = localStorage.getItem('tetrisHighScore') || 0;
+            highScoreElement.textContent = `🏆 Recorde: ${highScore}`;
+
+            const scale = 20;
+            const rows = canvas.height / scale;
+            const columns = canvas.width / scale;
+            
+            let board = Array(rows).fill().map(() => Array(columns).fill(0));
+            let currentPiece = null;
+            let nextPiece = null;
+            let score = 0;
+            let level = 1;
+            let gameOver = false;
+            let isPaused = false;
+            let dropInterval = 1000;
+            let dropCounter = 0;
+            let lastTime = 0;
+            let totalLinesCleared = 0;
+
+            // Peças do Tetris
+            const pieces = [
+                { shape: [[1, 1, 1, 1]], color: '#FF4136' },
+                { shape: [[1, 1, 1], [0, 1, 0]], color: '#2ECC40' },
+                { shape: [[1, 1, 1], [1, 0, 0]], color: '#0074D9' },
+                { shape: [[1, 1, 1], [0, 0, 1]], color: '#FFDC00' },
+                { shape: [[1, 1], [1, 1]], color: '#B10DC9' },
+                { shape: [[0, 1, 1], [1, 1, 0]], color: '#FF851B' },
+                { shape: [[1, 1, 0], [0, 1, 1]], color: '#7FDBFF' }
+            ];
+
+            // Função para atualizar o highscore
+            function updateHighScore() {
+                if (score > highScore) {
+                    highScore = score;
+                    localStorage.setItem('tetrisHighScore', highScore);
+                    highScoreElement.textContent = `🏆 Recorde: ${highScore}`;
+                    highScoreElement.classList.add('new-record');
+                    setTimeout(() => highScoreElement.classList.remove('new-record'), 1500);
+                }
+            }
+
+            // ... (todas as suas funções existentes: init, spawnPiece, draw, etc.) ...
+
+            function clearLines() {
+                let linesCleared = 0;
+                
+                for (let y = rows - 1; y >= 0; y--) {
+                    if (board[y].every(cell => cell)) {
+                        board.splice(y, 1);
+                        board.unshift(Array(columns).fill(0));
+                        linesCleared++;
+                        y++;
+                    }
+                }
+                
+                if (linesCleared > 0) {
+                    score += [100, 300, 500, 800][linesCleared - 1] * level;
+                    totalLinesCleared += linesCleared;
+                    
+                    if (totalLinesCleared >= level * 10) {
+                        level++;
+                        levelElement.textContent = level;
+                        dropInterval = Math.max(200, dropInterval - 50);
+                    }
+                    
+                    updateHighScore(); // Atualiza o highscore se necessário
+                    scoreElement.textContent = score;
+                }
+            }
+
+            function showGameOver() {
+                updateHighScore(); // Garante que o recorde está atualizado
+                alert(`Game Over!\nPontuação: ${score}\nSeu Recorde: ${highScore}`);
+                resetGame();
+            }
+
+            // ... (restante do seu código JavaScript) ...
+
+            init();
+        });
+    </script>
+</body>
+</html>
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tetris Moderno</title>
     <style>
         * {
