@@ -180,6 +180,52 @@
             50% { transform: translate(500px, 500px); }
             75% { transform: translate(200px, 300px); }
         }
+    /* ADICIONE ISSO AO FINAL DO SEU <style> EXISTENTE */
+:root {
+    --theme-primary: #FF4136;
+    --theme-secondary: #FF6B6B;
+}
+
+.score-pop {
+    transform: scale(1.2);
+    transition: transform 0.3s ease;
+}
+
+.achievement-notification {
+    position: fixed;
+    top: 20px;
+    right: -300px;
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 15px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-left: 5px solid var(--theme-primary);
+    transition: right 0.5s ease;
+    z-index: 1000;
+}
+
+.achievement-notification.show {
+    right: 20px;
+}
+
+.achievement-badge {
+    font-size: 24px;
+}
+
+/* Melhoria no gradiente do body (opcional) */
+body {
+    background: linear-gradient(-45deg, 
+        var(--theme-primary), 
+        var(--theme-secondary), 
+        #23a6d5, 
+        #23d5ab);
+    background-size: 400% 400%;
+    animation: gradientBG 15s ease infinite;
+}
+    
     </style>
 </head>
 <body>
