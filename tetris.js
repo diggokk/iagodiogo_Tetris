@@ -4,6 +4,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const nextCanvas = document.getElementById('nextPiece');
     const nextCtx = nextCanvas.getContext('2d');
     const scoreElement = document.getElementById('score');
+    const levelElement = document.getElementById('level');
     
     // Configuração do jogo
     canvas.width = canvas.clientWidth;
@@ -14,36 +15,65 @@ document.addEventListener('DOMContentLoaded', () => {
     const scale = 20;
     let rows, columns;
 
-function updateGridSize() {
-    rows = Math.floor(canvas.height / scale);
-    columns = Math.floor(canvas.width / scale);
-}
-updateGridSize(); // chama logo após ajustar canvas
+    function updateGridSize() {
+        rows = Math.floor(canvas.height / scale);
+        columns = Math.floor(canvas.width / scale);
+    }
+    updateGridSize();
 
+    // Configuração de temas
+    const themeColors = [
+        { primary: '#FF4136', secondary: '#FF6B6B' },
+        { primary: '#2ECC40', secondary: '#7CFC00' },
+        { primary: '#0074D9', secondary: '#1E90FF' },
+        { primary: '#FFDC00', secondary: '#FFD700' },
+        { primary: '#B10DC9', secondary: '#9400D3' }
+    ];
+    let currentTheme = themeColors[0];
+    document.documentElement.style.setProperty('--theme-primary', currentTheme.primary);
+    document.documentElement.style.setProperty('--theme-secondary', currentTheme.secondary);
+
+    // Sistema de conquistas
+    const achievements = {
+        quickClear: { name: "Destruidor", desc: "Limpar 4 linhas de uma vez", unlocked: false },
+        speedster: { name: "Veloz", desc: "Alcançar nível 3", unlocked: false },
+        noRotate: { name: "Purista", desc: "Completar 10 linhas sem rotacionar", unlocked: false }
+    };
+    let rotationCount = 0;
+    let linesWithoutRotation = 0;
+
+    // Efeitos sonoros
+    const sounds = {
+        rotate: new Audio('https://assets.mixkit.co/sfx/preview/mixkit-game-click-1114.mp3'),
+        clear: new Audio('https://assets.mixkit.co/sfx/preview/mixkit-achievement-bell-600.mp3'),
+        drop: new Audio('https://assets.mixkit.co/sfx/preview/mixkit-arcade-game-jump-coin-216.mp3'),
+        gameOver: new Audio('https://assets.mixkit.co/sfx/preview/mixkit-retro-arcade-lose-2027.mp3')
+    };
+
+    // Estado do jogo
     let gameOver = false;
     let isPaused = false;
-    let dropInterval = 1000; // Intervalo inicial (1 segundo)
+    let dropInterval = 1000;
     let dropCounter = 0;
     let lastTime = 0;
-    
-    // Peças do Tetris com cores vibrantes
-    const pieces = [
-        { shape: [[1, 1, 1, 1]], color: '#FF4136' }, // I
-        { shape: [[1, 1, 1], [0, 1, 0]], color: '#2ECC40' }, // T
-        { shape: [[1, 1, 1], [1, 0, 0]], color: '#0074D9' }, // L
-        { shape: [[1, 1, 1], [0, 0, 1]], color: '#FFDC00' }, // J
-        { shape: [[1, 1], [1, 1]], color: '#B10DC9' }, // O
-        { shape: [[0, 1, 1], [1, 1, 0]], color: '#FF851B' }, // S
-        { shape: [[1, 1, 0], [0, 1, 1]], color: '#7FDBFF' }  // Z
-    ];
-    
-    // Estado do jogo
+    let totalLinesCleared = 0;
     let score = 0;
     let level = 1;
     let board = Array(rows).fill().map(() => Array(columns).fill(0));
     let currentPiece = null;
     let nextPiece = null;
-    
+
+    // Peças do Tetris com cores dos temas
+    const pieces = [
+        { shape: [[1, 1, 1, 1]], color: 'var(--theme-primary)' },
+        { shape: [[1, 1, 1], [0, 1, 0]], color: 'var(--theme-secondary)' },
+        { shape: [[1, 1, 1], [1, 0, 0]], color: '#0074D9' },
+        { shape: [[1, 1, 1], [0, 0, 1]], color: '#FFDC00' },
+        { shape: [[1, 1], [1, 1]], color: '#B10DC9' },
+        { shape: [[0, 1, 1], [1, 1, 0]], color: '#FF851B' },
+        { shape: [[1, 1, 0], [0, 1, 1]], color: '#7FDBFF' }
+    ];
+
     // Inicialização
     function init() {
         resetGame();
@@ -52,7 +82,6 @@ updateGridSize(); // chama logo após ajustar canvas
         
         document.addEventListener('keydown', handleKeyPress);
         
-        // Configura os botões de controle
         document.querySelectorAll('.control-btn').forEach((btn, index) => {
             btn.addEventListener('click', () => {
                 const controls = ['ArrowUp', 'ArrowLeft', 'ArrowRight', 'ArrowDown', 'p', 'r'];
@@ -63,8 +92,8 @@ updateGridSize(); // chama logo após ajustar canvas
         
         requestAnimationFrame(gameLoop);
     }
-    
-    // Game loop usando requestAnimationFrame
+
+    // Game loop
     function gameLoop(time = 0) {
         if (gameOver || isPaused) return;
         
@@ -80,8 +109,8 @@ updateGridSize(); // chama logo após ajustar canvas
         draw();
         requestAnimationFrame(gameLoop);
     }
-    
-    // Cria uma peça aleatória
+
+    // Funções do jogo com melhorias
     function spawnPiece() {
         if (nextPiece) {
             currentPiece = {
@@ -94,164 +123,106 @@ updateGridSize(); // chama logo após ajustar canvas
             currentPiece = {
                 shape: pieces[randomIndex].shape,
                 color: pieces[randomIndex].color,
-                position: { x: Math.floor(columns / 2) - Math.floor(pieces[randomIndex].shape[0].length / 2), y: 0 }
+                position: { x: Math.floor(columns / 2) - 1, y: 0 }
             };
         }
-        
-        // Verifica se já perdeu ao criar nova peça
-        if (checkCollision()) {
-            gameOver = true;
-            showGameOver();
-            return;
-        }
-        
+
         const randomIndex = Math.floor(Math.random() * pieces.length);
         nextPiece = {
             shape: pieces[randomIndex].shape,
             color: pieces[randomIndex].color
         };
-    }
-    
-    // Função para mostrar a mensagem de Game Over
-    function showGameOver() {
-        alert(`Game Over! Pontuação: ${score}`);
-        resetGame();
-    }
-    
-    // Desenha a peça da próxima jogada
-    function drawNextPiece() {
-        nextCtx.clearRect(0, 0, nextCanvas.width, nextCanvas.height);
-        
-        if (nextPiece) {
-            const blockSize = nextCanvas.width / 4;
-            const offsetX = (nextCanvas.width - (nextPiece.shape[0].length * blockSize)) / 2;
-            const offsetY = (nextCanvas.height - (nextPiece.shape.length * blockSize)) / 2;
-            
-            nextPiece.shape.forEach((row, y) => {
-                row.forEach((value, x) => {
-                    if (value) {
-                        const gradient = nextCtx.createLinearGradient(
-                            offsetX + x * blockSize, 
-                            offsetY + y * blockSize, 
-                            offsetX + x * blockSize + blockSize, 
-                            offsetY + y * blockSize + blockSize
-                        );
-                        gradient.addColorStop(0, nextPiece.color);
-                        gradient.addColorStop(1, darkenColor(nextPiece.color, 20));
-                        
-                        nextCtx.fillStyle = gradient;
-                        nextCtx.shadowColor = 'rgba(255, 255, 255, 0.5)';
-                        nextCtx.shadowBlur = 5;
-                        nextCtx.fillRect(
-                            offsetX + x * blockSize, 
-                            offsetY + y * blockSize, 
-                            blockSize, 
-                            blockSize
-                        );
-                        
-                        nextCtx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
-                        nextCtx.lineWidth = 2;
-                        nextCtx.strokeRect(
-                            offsetX + x * blockSize, 
-                            offsetY + y * blockSize, 
-                            blockSize, 
-                            blockSize
-                        );
-                        
-                        nextCtx.shadowColor = 'transparent';
-                    }
-                });
-            });
+
+        if (checkCollision()) {
+            gameOver = true;
+            showGameOver();
         }
     }
-    
-    // Escurece uma cor
-    function darkenColor(color, percent) {
-        const hex = color.replace('#', '');
-        const num = parseInt(hex, 16);
-        const amt = Math.round(2.55 * percent); 
-        const R = (num >> 16) - amt;
-        const G = (num >> 8 & 0x00FF) - amt;
-        const B = (num & 0x0000FF) - amt;
-        
-        return '#' + (
-            0x1000000 +
-            (R < 0 ? 0 : R) * 0x10000 +
-            (G < 0 ? 0 : G) * 0x100 +
-            (B < 0 ? 0 : B)
-        ).toString(16).slice(1);
+
+    function showGameOver() {
+        sounds.gameOver.play();
+        alert(`Game Over! Pontuação: ${score}\nNível alcançado: ${level}`);
+        resetGame();
     }
-    
-    // Desenha o tabuleiro
+
+    function drawNextPiece() {
+        nextCtx.clearRect(0, 0, nextCanvas.width, nextCanvas.height);
+        const blockSize = nextCanvas.width / 4;
+        
+        nextPiece.shape.forEach((row, y) => {
+            row.forEach((value, x) => {
+                if (value) {
+                    nextCtx.fillStyle = nextPiece.color;
+                    nextCtx.fillRect(
+                        x * blockSize + 10, 
+                        y * blockSize + 10, 
+                        blockSize - 10, 
+                        blockSize - 10
+                    );
+                    
+                    nextCtx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+                    nextCtx.strokeRect(
+                        x * blockSize + 10, 
+                        y * blockSize + 10, 
+                        blockSize - 10, 
+                        blockSize - 10
+                    );
+                }
+            });
+        });
+    }
+
     function draw() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         
-        // Desenha as peças fixas no tabuleiro
+        // Desenha o tabuleiro com efeito de gradiente
         board.forEach((row, y) => {
             row.forEach((value, x) => {
                 if (value) {
                     const gradient = ctx.createLinearGradient(
-                        x * scale, 
-                        y * scale, 
-                        x * scale + scale, 
-                        y * scale + scale
+                        x * scale, y * scale,
+                        x * scale + scale, y * scale + scale
                     );
                     gradient.addColorStop(0, value);
                     gradient.addColorStop(1, darkenColor(value, 20));
                     
                     ctx.fillStyle = gradient;
-                    ctx.shadowColor = 'rgba(255, 255, 255, 0.3)';
-                    ctx.shadowBlur = 5;
                     ctx.fillRect(x * scale, y * scale, scale, scale);
                     
                     ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
-                    ctx.lineWidth = 1;
                     ctx.strokeRect(x * scale, y * scale, scale, scale);
-                    
-                    ctx.shadowColor = 'transparent';
                 }
             });
         });
-        
-        // Desenha a peça atual
+
+        // Desenha a peça atual com sombra
         if (currentPiece && !isPaused) {
             currentPiece.shape.forEach((row, y) => {
                 row.forEach((value, x) => {
                     if (value) {
-                        const gradient = ctx.createLinearGradient(
-                            (currentPiece.position.x + x) * scale, 
-                            (currentPiece.position.y + y) * scale, 
-                            (currentPiece.position.x + x) * scale + scale, 
-                            (currentPiece.position.y + y) * scale + scale
-                        );
-                        gradient.addColorStop(0, currentPiece.color);
-                        gradient.addColorStop(1, darkenColor(currentPiece.color, 15));
-                        
-                        ctx.fillStyle = gradient;
+                        ctx.fillStyle = currentPiece.color;
                         ctx.shadowColor = 'rgba(255, 255, 255, 0.5)';
                         ctx.shadowBlur = 10;
                         ctx.fillRect(
-                            (currentPiece.position.x + x) * scale, 
-                            (currentPiece.position.y + y) * scale, 
+                            (currentPiece.position.x + x) * scale,
+                            (currentPiece.position.y + y) * scale,
                             scale, 
                             scale
                         );
+                        ctx.shadowColor = 'transparent';
                         
                         ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
-                        ctx.lineWidth = 1.5;
                         ctx.strokeRect(
-                            (currentPiece.position.x + x) * scale, 
-                            (currentPiece.position.y + y) * scale, 
+                            (currentPiece.position.x + x) * scale,
+                            (currentPiece.position.y + y) * scale,
                             scale, 
                             scale
                         );
-                        
-                        ctx.shadowColor = 'transparent';
                     }
                 });
             });
         }
-        
+
         // Texto de pausa
         if (isPaused) {
             ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
@@ -259,14 +230,14 @@ updateGridSize(); // chama logo após ajustar canvas
             ctx.textAlign = 'center';
             ctx.fillText('PAUSADO', canvas.width / 2, canvas.height / 2);
             ctx.font = '20px Arial';
-            ctx.fillText('Clique P para continuar', canvas.width / 2, canvas.height / 2 + 40);
+            ctx.fillText('Pressione P para continuar', canvas.width / 2, canvas.height / 2 + 40);
         }
-        
-        // Atualiza a pontuação no painel
+
         scoreElement.textContent = score;
+        levelElement.textContent = level;
     }
-    
-    // Movimenta a peça para baixo
+
+    // Funções de controle do jogo com efeitos sonoros
     function dropPiece() {
         if (!currentPiece || isPaused) return;
         
@@ -277,52 +248,26 @@ updateGridSize(); // chama logo após ajustar canvas
             clearLines();
             spawnPiece();
             drawNextPiece();
+            sounds.drop.play();
         }
     }
-    
-    // Movimento rápido para baixo
-    function hardDrop() {
-        if (!currentPiece || isPaused) return;
-        
-        while (!checkCollision()) {
-            currentPiece.position.y++;
-        }
-        currentPiece.position.y--;
-        mergePiece();
-        clearLines();
-        spawnPiece();
-        drawNextPiece();
-    }
-    
-    // Rotaciona a peça
+
     function rotatePiece() {
         if (!currentPiece || isPaused) return;
         
         const originalShape = currentPiece.shape;
-        // Transpõe a matriz e inverte as linhas para rotacionar
-        const rotated = currentPiece.shape[0].map((_, i) => 
+        currentPiece.shape = currentPiece.shape[0].map((_, i) => 
             currentPiece.shape.map(row => row[i]).reverse()
         );
         
-        currentPiece.shape = rotated;
-        
-        // Verifica se a rotação causa colisão
         if (checkCollision()) {
-            // Tenta mover para a esquerda ou direita para evitar colisão
-            const originalX = currentPiece.position.x;
-            
-            currentPiece.position.x++;
-            if (checkCollision()) {
-                currentPiece.position.x -= 2;
-                if (checkCollision()) {
-                    currentPiece.position.x = originalX;
-                    currentPiece.shape = originalShape; // Reverte se não conseguir
-                }
-            }
+            currentPiece.shape = originalShape;
+        } else {
+            sounds.rotate.play();
+            rotationCount++;
         }
     }
-    
-    // Movimenta a peça horizontalmente
+
     function movePiece(direction) {
         if (!currentPiece || isPaused) return;
         
@@ -331,8 +276,7 @@ updateGridSize(); // chama logo após ajustar canvas
             currentPiece.position.x -= direction;
         }
     }
-    
-    // Verifica colisão
+
     function checkCollision() {
         for (let y = 0; y < currentPiece.shape.length; y++) {
             for (let x = 0; x < currentPiece.shape[y].length; x++) {
@@ -347,8 +291,7 @@ updateGridSize(); // chama logo após ajustar canvas
         }
         return false;
     }
-    
-    // Funde a peça atual ao tabuleiro
+
     function mergePiece() {
         currentPiece.shape.forEach((row, y) => {
             row.forEach((value, x) => {
@@ -358,90 +301,152 @@ updateGridSize(); // chama logo após ajustar canvas
             });
         });
     }
-    
-    // Limpa linhas completas
+
+    // Sistema de limpeza de linhas com efeitos visuais
     function clearLines() {
-         let linesCleared = 0;
-    for (let y = rows - 1; y >= 0; y--) {
-        if (board[y].every(cell => cell)) {
-            flashLine(y); // efeito visual na linha
-            board.splice(y, 1);
-            board.unshift(Array(columns).fill(0));
-            linesCleared++;
+        let linesCleared = 0;
+        
+        for (let y = rows - 1; y >= 0; y--) {
+            if (board[y].every(cell => cell)) {
+                createLineClearEffect(y);
+                board.splice(y, 1);
+                board.unshift(Array(columns).fill(0));
+                linesCleared++;
+                y++;
+            }
+        }
+        
+        if (linesCleared > 0) {
+            sounds.clear.play();
+            score += [100, 300, 500, 800][linesCleared - 1] * level;
+            totalLinesCleared += linesCleared;
+            
+            // Atualiza nível
+            if (totalLinesCleared >= level * 10) {
+                level++;
+                levelElement.textContent = level;
+                dropInterval = Math.max(200, dropInterval - 50);
+                
+                // Muda tema
+                currentTheme = themeColors[level % themeColors.length];
+                document.documentElement.style.setProperty('--theme-primary', currentTheme.primary);
+                document.documentElement.style.setProperty('--theme-secondary', currentTheme.secondary);
+            }
+            
+            // Verifica conquistas
+            if (linesCleared >= 4 && !achievements.quickClear.unlocked) {
+                achievements.quickClear.unlocked = true;
+                showAchievement(achievements.quickClear);
+            }
+            
+            if (level >= 3 && !achievements.speedster.unlocked) {
+                achievements.speedster.unlocked = true;
+                showAchievement(achievements.speedster);
+            }
+            
+            // Efeito visual na pontuação
+            scoreElement.classList.add('score-pop');
+            setTimeout(() => scoreElement.classList.remove('score-pop'), 300);
         }
     }
-        
-        // Atualiza pontuação e nível
-           if (linesCleared > 0) {
-        score += linesCleared * 100;
-        scoreElement.textContent = score;
 
-        // Animação na pontuação
-        scoreElement.classList.remove('animate');
-        void scoreElement.offsetWidth; // força reinício
-        scoreElement.classList.add('animate');
+    // Efeito visual ao limpar linha
+    function createLineClearEffect(y) {
+        const effectDuration = 300;
+        const startTime = performance.now();
+        
+        function animate(currentTime) {
+            const elapsed = currentTime - startTime;
+            const progress = Math.min(elapsed / effectDuration, 1);
+            
+            ctx.fillStyle = `rgba(255, 255, 255, ${0.7 * (1 - progress)})`;
+            ctx.fillRect(0, y * scale, canvas.width, scale);
+            
+            if (progress < 1) {
+                requestAnimationFrame(animate);
+            }
+        }
+        
+        requestAnimationFrame(animate);
     }
-}
-    
-    // Pausa/continua o jogo
+
+    // Mostra conquistas
+    function showAchievement(achievement) {
+        const achievementEl = document.createElement('div');
+        achievementEl.className = 'achievement-notification';
+        achievementEl.innerHTML = `
+            <div class="achievement-badge">🏆</div>
+            <div class="achievement-text">
+                <strong>${achievement.name}</strong><br>
+                <small>${achievement.desc}</small>
+            </div>
+        `;
+        document.body.appendChild(achievementEl);
+        
+        setTimeout(() => {
+            achievementEl.classList.add('show');
+            setTimeout(() => {
+                achievementEl.classList.remove('show');
+                setTimeout(() => achievementEl.remove(), 500);
+            }, 3000);
+        }, 100);
+    }
+
     function togglePause() {
         isPaused = !isPaused;
     }
-    
-    // Reinicia o jogo
+
     function resetGame() {
         board = Array(rows).fill().map(() => Array(columns).fill(0));
         score = 0;
         level = 1;
+        totalLinesCleared = 0;
         dropInterval = 1000;
         gameOver = false;
         isPaused = false;
         spawnPiece();
         drawNextPiece();
     }
-    
-    // Manipulador de teclado
+
     function handleKeyPress(event) {
-        if (event.key === 'ArrowLeft') {
-            movePiece(-1);
-        } else if (event.key === 'ArrowRight') {
-            movePiece(1);
-        } else if (event.key === 'ArrowDown') {
-            dropPiece();
-        } else if (event.key === 'ArrowUp') {
-            rotatePiece();
-        } else if (event.key === ' ') {
-            hardDrop();
-        } else if (event.key.toLowerCase() === 'p') {
-            togglePause();
-        } else if (event.key.toLowerCase() === 'r') {
-            resetGame();
+        if (gameOver) return;
+        
+        switch(event.key) {
+            case 'ArrowLeft': movePiece(-1); break;
+            case 'ArrowRight': movePiece(1); break;
+            case 'ArrowDown': dropPiece(); break;
+            case 'ArrowUp': rotatePiece(); break;
+            case ' ': 
+                while (!checkCollision()) currentPiece.position.y++;
+                currentPiece.position.y--;
+                mergePiece();
+                clearLines();
+                spawnPiece();
+                drawNextPiece();
+                break;
+            case 'p': case 'P': togglePause(); break;
+            case 'r': case 'R': resetGame(); break;
         }
         
         event.preventDefault();
     }
-    
-    // Inicia o jogo
+
+    // Função auxiliar para escurecer cores
+    function darkenColor(color, percent) {
+        const hex = color.replace('#', '');
+        const num = parseInt(hex, 16);
+        const amt = Math.round(2.55 * percent);
+        const R = (num >> 16) - amt;
+        const G = (num >> 8 & 0x00FF) - amt;
+        const B = (num & 0x0000FF) - amt;
+        
+        return '#' + (
+            0x1000000 +
+            (R < 0 ? 0 : R) * 0x10000 +
+            (G < 0 ? 0 : G) * 0x100 +
+            (B < 0 ? 0 : B)
+        ).toString(16).slice(1);
+    }
+
     init();
 });
-
-function flashLine(row) {
-    const tempCanvas = document.createElement('canvas');
-    tempCanvas.width = canvas.width;
-    tempCanvas.height = canvas.height;
-    const tempCtx = tempCanvas.getContext('2d');
-
-    document.body.appendChild(tempCanvas);
-    tempCanvas.style.position = 'absolute';
-    tempCanvas.style.left = canvas.offsetLeft + 'px';
-    tempCanvas.style.top = canvas.offsetTop + 'px';
-    tempCanvas.style.pointerEvents = 'none';
-    tempCanvas.style.zIndex = 99;
-
-    tempCtx.fillStyle = 'rgba(255, 255, 0, 0.4)';
-    tempCtx.fillRect(0, row * scale, canvas.width, scale);
-
-    setTimeout(() => {
-        document.body.removeChild(tempCanvas);
-    }, 200);
-}
